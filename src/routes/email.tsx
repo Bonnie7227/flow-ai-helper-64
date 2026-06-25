@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { generateEmail } from "@/lib/ai-tasks.functions";
 import { PageShell } from "@/components/page-shell";
 import { Disclaimer } from "@/components/disclaimer";
-import { Markdown } from "@/components/markdown";
+import { LoadingState, EmptyState } from "@/components/states";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -31,6 +31,14 @@ export const Route = createFileRoute("/email")({
   component: EmailPage,
 });
 
+type EmailVars = {
+  recipient: string;
+  purpose: string;
+  context: string;
+  tone: string;
+  audience: string;
+};
+
 function EmailPage() {
   const gen = useServerFn(generateEmail);
   const [recipient, setRecipient] = useState("");
@@ -41,7 +49,7 @@ function EmailPage() {
   const [copied, setCopied] = useState(false);
 
   const mutation = useMutation({
-    mutationFn: (vars: { data: Parameters<typeof generateEmail>[0]["data"] }) => gen(vars),
+    mutationFn: (vars: EmailVars) => gen({ data: vars }),
     onError: (e: Error) => toast.error(e.message || "Generation failed"),
   });
 
@@ -51,15 +59,7 @@ function EmailPage() {
       toast.error("Recipient and purpose are required");
       return;
     }
-    mutation.mutate({
-      data: {
-        recipient,
-        purpose,
-        context,
-        tone: tone as never,
-        audience: audience as never,
-      },
-    });
+    mutation.mutate({ recipient, purpose, context, tone, audience });
   }
 
   async function copy() {
@@ -76,18 +76,10 @@ function EmailPage() {
       icon={<Mail className="h-5 w-5" />}
     >
       <div className="grid gap-6 lg:grid-cols-[1fr_1.1fr]">
-        <form
-          onSubmit={onSubmit}
-          className="space-y-4 rounded-xl border border-border/70 bg-card p-5 shadow-sm"
-        >
+        <form onSubmit={onSubmit} className="space-y-4 rounded-xl border border-border/70 bg-card p-5 shadow-sm">
           <div className="space-y-1.5">
             <Label htmlFor="recipient">Recipient</Label>
-            <Input
-              id="recipient"
-              placeholder="e.g. Sarah, Head of Product"
-              value={recipient}
-              onChange={(e) => setRecipient(e.target.value)}
-            />
+            <Input id="recipient" placeholder="e.g. Sarah, Head of Product" value={recipient} onChange={(e) => setRecipient(e.target.value)} />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -123,40 +115,23 @@ function EmailPage() {
 
           <div className="space-y-1.5">
             <Label htmlFor="purpose">Purpose</Label>
-            <Input
-              id="purpose"
-              placeholder="e.g. Reschedule Thursday's review to next Tuesday"
-              value={purpose}
-              onChange={(e) => setPurpose(e.target.value)}
-            />
+            <Input id="purpose" placeholder="e.g. Reschedule Thursday's review to next Tuesday" value={purpose} onChange={(e) => setPurpose(e.target.value)} />
           </div>
 
           <div className="space-y-1.5">
             <Label htmlFor="context">Additional context (optional)</Label>
-            <Textarea
-              id="context"
-              rows={4}
-              placeholder="Background, constraints, names, references…"
-              value={context}
-              onChange={(e) => setContext(e.target.value)}
-            />
+            <Textarea id="context" rows={4} placeholder="Background, constraints, names, references…" value={context} onChange={(e) => setContext(e.target.value)} />
           </div>
 
           <Button type="submit" disabled={mutation.isPending} className="w-full">
-            {mutation.isPending ? (
-              <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Drafting…</>
-            ) : (
-              "Generate Email"
-            )}
+            {mutation.isPending ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Drafting…</>) : "Generate Email"}
           </Button>
           <Disclaimer />
         </form>
 
         <div className="flex min-h-[20rem] flex-col rounded-xl border border-border/70 bg-card p-5 shadow-sm">
           <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-              Draft
-            </h2>
+            <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Draft</h2>
             {mutation.data?.text && (
               <Button size="sm" variant="ghost" onClick={copy}>
                 {copied ? <Check className="mr-1 h-3.5 w-3.5" /> : <Copy className="mr-1 h-3.5 w-3.5" />}
@@ -178,23 +153,3 @@ function EmailPage() {
     </PageShell>
   );
 }
-
-export function LoadingState({ label }: { label: string }) {
-  return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-3 py-12 text-muted-foreground">
-      <Loader2 className="h-5 w-5 animate-spin text-primary" />
-      <span className="text-sm">{label}</span>
-    </div>
-  );
-}
-
-export function EmptyState({ text }: { text: string }) {
-  return (
-    <div className="flex flex-1 items-center justify-center py-12">
-      <p className="text-sm text-muted-foreground">{text}</p>
-    </div>
-  );
-}
-
-// Re-export so other routes can reuse without circular dependency complaints
-export { Markdown };
